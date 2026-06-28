@@ -1,0 +1,182 @@
+# .cursorrules — Fábrica de Apps
+
+Você é o **Orquestrador** da Fábrica de Apps com IA.
+Tem acesso ao terminal do computador e ao MCP da fábrica.
+
+---
+
+## VERSÃO OBRIGATÓRIA — NUNCA ALTERAR
+- Expo SDK: **54**
+- expo: "~54.0.0"
+- react-native: "0.76.5"
+- react: "18.3.1"
+- expo-router: "~4.0.0"
+
+O package.json SEMPRE deve ter exatamente essas versões.
+O app.json SEMPRE deve ter "sdkVersion": "54.0.0"
+
+---
+
+## Fluxo completo ao receber uma ideia de app
+
+### FASE 1 — Planejamento
+1. Use `criar_projeto_completo` para criar repo + branch + PR no GitHub
+2. Use `obter_prompt_agente` com tipo "ux" para definir visual
+3. Use `obter_prompt_agente` com tipo "firebase" para definir schema
+
+### FASE 2 — Geração de código
+4. Use `checar_padrao_lashmatch` antes de gerar qualquer tela
+5. Use `rag_buscar` para encontrar padrões relevantes no CLAUDE.md
+6. Gere TODOS os arquivos seguindo os padrões encontrados
+7. Para cada arquivo gerado: use `salvar_arquivo_staging`
+
+Ordem obrigatória de geração:
+1. package.json (SDK 54 obrigatório)
+2. app.json (sdkVersion: "54.0.0")
+3. tsconfig.json
+4. utils/firebaseConfig.ts
+5. constants/colors.ts
+6. app/_layout.tsx
+7. app/index.tsx
+8. app/Login.tsx
+9. app/cadastro.tsx
+10. app/(tabs)/_layout.tsx
+11. Demais telas do PROJECT.md
+
+### FASE 3 — Publicação
+8. Use `listar_staging` para confirmar todos os arquivos
+9. Use `publicar_funcionalidade` para criar branch + subir código + abrir PR
+10. Use `revisar_pr` para o Agente QA analisar e aprovar o PR
+
+### FASE 4 — Setup local e teste
+11. Use `configurar_projeto_local` para obter as instruções
+12. Execute no terminal em sequência:
+    cd C:\Users\gusta\projetos
+    git clone [URL_DO_REPO]
+    cd [NOME_DO_REPO]
+    npm install
+    npx expo start
+13. Mostre o QR Code para o usuário escanear no Expo Go SDK 54
+
+---
+
+## package.json obrigatório
+
+```json
+{
+  "name": "nome-do-app",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  },
+  "dependencies": {
+    "expo": "~54.0.0",
+    "expo-router": "~4.0.0",
+    "expo-status-bar": "~2.0.0",
+    "expo-linking": "~7.0.0",
+    "expo-constants": "~17.0.0",
+    "expo-web-browser": "~14.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
+    "react-native-safe-area-context": "4.12.0",
+    "react-native-screens": "~4.4.0",
+    "react-native-twrnc": "^4.3.1",
+    "firebase": "^11.0.0",
+    "@react-native-async-storage/async-storage": "^2.1.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "typescript": "~5.3.0"
+  }
+}
+```
+
+## app.json obrigatório
+
+```json
+{
+  "expo": {
+    "name": "Nome do App",
+    "slug": "nome-do-app",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "scheme": "nome-do-app",
+    "userInterfaceStyle": "dark",
+    "platforms": ["ios", "android"],
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Regras obrigatórias de código
+
+- Importar auth/firestore SOMENTE de utils/firebaseConfig.ts
+- Cores sempre de constants/colors.ts — nunca hardcoded
+- tw() para layouts, StyleSheet para componentes complexos
+- Fundo preto (#000) em todas as telas
+- SafeAreaView como wrapper principal
+- useFocusEffect para recarregar dados ao voltar
+- Após login: router.replace('/(tabs)') — nunca router.push
+- serverTimestamp() para campos de data no Firestore
+- Path Firestore: artifacts/${app.options.appId}/users/${uid}/colecao
+
+---
+
+## Se der erro no setup local
+
+- Erro de SDK incompatível: npx expo install --fix
+- Erro de rede: npx expo start --tunnel
+- Erro de Node: node --version deve ser v20+
+- Erro de dependência: rm -rf node_modules && npm install
+
+# Regras de Memória — Fábrica de Software
+# Adicione no início do .cursorrules de cada projeto
+
+## MEMÓRIA — Regras obrigatórias
+
+### Antes de qualquer implementação
+1. Use `buscar_historico` com query relevante
+   Ex: "google signin", "firebase auth", "pagamento", "upload foto"
+2. Use `rag_buscar` com query técnica relevante
+3. Só então implemente — seguindo o histórico encontrado
+
+### Após qualquer implementação relevante
+1. Use `salvar_decisao` para registrar a decisão
+2. Se resolveu um problema complexo, use `salvar_contexto_conversa`
+3. Se atualizou o Obsidian, re-indexe o RAG:
+   python C:/Users/gusta/obsidian/indexar_rapido.py
+   python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --server
+
+### Quando usar cada tool de memória
+
+| Situação | Tool |
+|----------|------|
+| Escolheu biblioteca A em vez de B | salvar_decisao |
+| Resolveu bug não óbvio | salvar_decisao |
+| Implementou feature completa | salvar_contexto_conversa |
+| Quer saber se já fizemos X antes | buscar_historico |
+| Quer ver todas as decisões | listar_decisoes |
+
+### Exemplos de quando SEMPRE buscar histórico
+- "como fazer auth" → buscar_historico("google signin auth")
+- "instalar pacote X" → buscar_historico("nome do pacote")
+- "configurar Firebase" → buscar_historico("firebase setup")
+- "fazer upload" → buscar_historico("upload storage foto")
+- "enviar WhatsApp" → buscar_historico("whatsapp zapi meta")
+
+### Exemplos de quando SEMPRE salvar decisão
+- Decidiu usar expo-auth-session → salvar_decisao
+- Resolveu erro de Storage → salvar_decisao
+- Mudou arquitetura de navegação → salvar_decisao
+- Adicionou nova integração → salvar_decisao
+
