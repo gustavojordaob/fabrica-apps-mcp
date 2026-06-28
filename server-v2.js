@@ -18,7 +18,8 @@ var GITHUB_USER   = process.env.GITHUB_USER   || '';
 var FABRICA_PATH       = process.env.FABRICA_PATH  || __dirname;
 var PROJETOS_PATH      = process.env.FABRICA_PROJETOS_PATH || 'C:/Users/gusta/projetos';
 var CLAUDE_MD          = '';
-var RAG_INDEX          = null;
+var RAG_SERVER_OFFLINE =
+  'Servidor RAG offline. Rode: python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --server';
 
 try {
   CLAUDE_MD = fs.readFileSync(path.join(FABRICA_PATH, 'CLAUDE.md'), 'utf-8');
@@ -301,59 +302,6 @@ function extrairSecao(numero) {
     if (/^## \d+\./.test(linhas[j])) { fim = j; break; }
   }
   return linhas.slice(inicio, fim).join('\n');
-}
-
-// ─── RAG ─────────────────────────────────────────────────────────────────────
-function carregarRAG() {
-  if (RAG_INDEX) return RAG_INDEX;
-  var indexPath = path.join(FABRICA_PATH, 'rag-index.json');
-  if (!fs.existsSync(indexPath)) return null;
-  try {
-    RAG_INDEX = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-    return RAG_INDEX;
-  } catch(e) { return null; }
-}
-
-function buscarRAG(query, topK) {
-  var indice = carregarRAG();
-  if (!indice) return null;
-  topK = topK || 3;
-
-  var STOP = ['que','para','com','uma','dos','das','por','sao','ser','tem',
-    'nao','mais','como','mas','seu','sua','isso','este','esta','esse','essa',
-    'ele','ela','nos','nas','num','numa','foi','era','use','usar'];
-
-  var tokens = query.toLowerCase()
-    .replace(/[^a-z\s]/g, ' ').split(/\s+/)
-    .filter(function(t) { return t.length > 2 && STOP.indexOf(t) === -1; });
-
-  var tf = {};
-  tokens.forEach(function(t) { tf[t] = (tf[t] || 0) + 1; });
-  var total = tokens.length || 1;
-  Object.keys(tf).forEach(function(k) { tf[k] /= total; });
-
-  var qv = {};
-  Object.keys(tf).forEach(function(t) {
-    qv[t] = tf[t] * (indice.idf[t] || 1);
-  });
-
-  function mag(v) {
-    var s = 0;
-    Object.keys(v).forEach(function(k) { s += v[k]*v[k]; });
-    return Math.sqrt(s);
-  }
-
-  var res = indice.chunks.map(function(c) {
-    var prod = 0;
-    Object.keys(qv).forEach(function(k) {
-      if (c.tfidf[k]) prod += qv[k] * c.tfidf[k];
-    });
-    var m = mag(qv) * mag(c.tfidf);
-    return { chunk: c, score: m === 0 ? 0 : prod / m };
-  });
-
-  res.sort(function(a, b) { return b.score - a.score; });
-  return res.filter(function(r) { return r.score > 0; }).slice(0, topK);
 }
 
 // ─── Ferramentas MCP ──────────────────────────────────────────────────────────
@@ -687,30 +635,12 @@ function executar(nome, args) {
 
     }).then(function(resultado) {
       if (resultado) return resultado;
-
-      // Fallback TF-IDF quando servidor offline
-      var indice = carregarRAG();
-      if (!indice) {
-        return '⚠️ Servidor RAG offline.\n' +
-          'Rode: python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --server';
-      }
-      var resultados = buscarRAG(args.query, args.topK || 3);
-      if (!resultados || resultados.length === 0) {
-        return 'Nenhum resultado para: "' + args.query + '"';
-      }
-      var resposta = '🔍 RAG (fallback) para: "' + args.query + '"\n\n';
-      resultados.forEach(function(r, i) {
-        resposta += '--- ' + (i+1) + '. ' + r.chunk.titulo +
-          ' (relevancia: ' + Math.round(r.score*1000)/1000 + ') ---\n';
-        resposta += r.chunk.texto.slice(0, 600) + '\n\n';
-      });
-      return resposta;
+      return RAG_SERVER_OFFLINE;
     });
   }
 
   // ── status_fabrica ──────────────────────────────────────────────────────────
   if (nome === 'status_fabrica') {
-    var rag = carregarRAG();
     return Promise.resolve(
       'Fabrica de Apps — Status\n\n' +
       'GitHub:\n' +
@@ -718,12 +648,11 @@ function executar(nome, args) {
       '  Token: ' + (GITHUB_TOKEN ? 'configurado' : 'nao configurado') + '\n\n' +
       'CLAUDE.md:\n' +
       '  ' + (CLAUDE_MD.length > 50
-        ? 'carregado (' + CLAUDE_MD.length + ' caracteres)'
+        ? 'carregado (' + CLAUDE_MD.length + ' caracteres) — ponte, nao KB'
         : 'nao encontrado') + '\n\n' +
       'RAG:\n' +
-      '  ' + (rag
-        ? 'ativo — ' + rag.totalChunks + ' chunks, ' + Object.keys(rag.idf).length + ' termos'
-        : 'nao criado — rode: node rag-indexer.js indexar') + '\n\n' +
+      '  Chroma hibrido em http://127.0.0.1:7332\n' +
+      '  Subir: python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --server\n\n' +
       'Ferramentas: ' + TOOLS.length + '\n' +
       'Agentes: UX, Firebase, Frontend, QA'
     );
@@ -1119,7 +1048,7 @@ function buscarHistoricoRemoto(query, topK) {
     var url  = '/buscar?q=' + encodeURIComponent(query) + '&n=' + (topK || 5);
 
     var req = http.request({
-      hostname: 'localhost',
+      hostname: '127.0.0.1',
       port:     7332,
       path:     url,
       method:   'GET',
@@ -1233,7 +1162,7 @@ executar = function(nome, args) {
   if (nome === 'buscar_historico') {
     return buscarHistoricoRemoto(args.query, args.topK).then(function(resultado) {
       if (resultado) return resultado;
-      return 'Servidor RAG offline. Rode: python C:/Users/gusta/obsidian/indexar_obsidian_chroma.py --server';
+      return RAG_SERVER_OFFLINE;
     });
   }
 
